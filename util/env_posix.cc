@@ -292,9 +292,11 @@ class PosixEnv : public Env {
  public:
   PosixEnv();
   virtual ~PosixEnv() {
-    char msg[] = "Destroying Env::Default()\n";
-    fwrite(msg, 1, sizeof(msg), stderr);
-    abort();
+    if (this == Env::Default()) {
+      char msg[] = "Destroying Env::Default()\n";
+      fwrite(msg, 1, sizeof(msg), stderr);
+      abort();
+    }
   }
 
   virtual Status NewSequentialFile(const std::string& fname,
@@ -613,6 +615,10 @@ static void InitDefaultEnv() { default_env = new PosixEnv; }
 Env* Env::Default() {
   pthread_once(&once, InitDefaultEnv);
   return default_env;
+}
+
+Env* Env::Instance() {
+  return (new PosixEnv());
 }
 
 }  // namespace leveldb
