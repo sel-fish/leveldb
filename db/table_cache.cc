@@ -42,13 +42,19 @@ TableCache::~TableCache() {
   delete cache_;
 }
 
+// get
+
 Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
                              Cache::Handle** handle) {
   Status s;
   char buf[sizeof(file_number)];
   EncodeFixed64(buf, file_number);
   Slice key(buf, sizeof(buf));
+  // get table cache, the key is file number
   *handle = cache_->Lookup(key);
+  // if *handler is not null, just return
+  // as the result already stored in *handle
+  // otherwise, get the table from disk and insert into cache
   if (*handle == NULL) {
     std::string fname = TableFileName(dbname_, file_number);
     RandomAccessFile* file = NULL;
@@ -73,6 +79,8 @@ Status TableCache::FindTable(uint64_t file_number, uint64_t file_size,
       TableAndFile* tf = new TableAndFile;
       tf->file = file;
       tf->table = table;
+      // here we can see the structure store in cache_
+      // the value is the pointer of TableAndFile
       *handle = cache_->Insert(key, tf, 1, &DeleteEntry);
     }
   }
@@ -102,6 +110,7 @@ Iterator* TableCache::NewIterator(const ReadOptions& options,
   return result;
 }
 
+// get k from table
 Status TableCache::Get(const ReadOptions& options,
                        uint64_t file_number,
                        uint64_t file_size,
@@ -111,6 +120,9 @@ Status TableCache::Get(const ReadOptions& options,
   Cache::Handle* handle = NULL;
   Status s = FindTable(file_number, file_size, &handle);
   if (s.ok()) {
+    // the difference between table and file ?
+    // table is a structure but file is just file description ??
+    // why can't we just jump to the implementation of cache_
     Table* t = reinterpret_cast<TableAndFile*>(cache_->Value(handle))->table;
     s = t->InternalGet(options, k, arg, saver);
     cache_->Release(handle);

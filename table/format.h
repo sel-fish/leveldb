@@ -19,6 +19,7 @@ struct ReadOptions;
 
 // BlockHandle is a pointer to the extent of a file that stores a data
 // block or a meta block.
+// BlockHandle store the offset and size of a block
 class BlockHandle {
  public:
   BlockHandle();
@@ -44,6 +45,11 @@ class BlockHandle {
 
 // Footer encapsulates the fixed information stored at the tail
 // end of every table file.
+// Footer store three parts of info, the handler of metaindex block
+// and index block and a 8 bytes magic
+// these two blocks store also at the end of a file
+// just before footer, and the sequence is
+// metaindex block -> index block -> footer
 class Footer {
  public:
   Footer() { }

@@ -8,3 +8,9 @@ build_config.mk
 db_bench
 leveldbutil
 tags
+.idea
+
+# cmake files
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake

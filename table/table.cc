@@ -32,9 +32,11 @@ struct Table::Rep {
   const char* filter_data;
 
   BlockHandle metaindex_handle;  // Handle to metaindex_block: saved from footer
-  Block* index_block;
+  Block* index_block; // Handler to block: also saved from footer
 };
 
+// from the process of Table::Open
+// we can get a glance at how a sst organize its data
 Status Table::Open(const Options& options,
                    RandomAccessFile* file,
                    uint64_t size,
@@ -44,6 +46,7 @@ Status Table::Open(const Options& options,
     return Status::Corruption("file is too short to be an sstable");
   }
 
+  // 1. read the content of foooter
   char footer_space[Footer::kEncodedLength];
   Slice footer_input;
   Status s = file->Read(size - Footer::kEncodedLength, Footer::kEncodedLength,
@@ -175,6 +178,9 @@ Iterator* Table::BlockReader(void* arg,
   // We intentionally allow extra stuff in index_value so that we
   // can add more features in the future.
 
+  // 1. read block first
+  // if block_cache exist, search from cache, if not exist, write back
+  // if not exist, just invoke ReadBlock
   if (s.ok()) {
     BlockContents contents;
     if (block_cache != NULL) {
@@ -207,8 +213,10 @@ Iterator* Table::BlockReader(void* arg,
   if (block != NULL) {
     iter = block->NewIterator(table->rep_->options.comparator);
     if (cache_handle == NULL) {
+      // if cache_handler is null, just delete block after iterator used
       iter->RegisterCleanup(&DeleteBlock, block, NULL);
     } else {
+      // else, just release the block to cache
       iter->RegisterCleanup(&ReleaseBlock, block_cache, cache_handle);
     }
   } else {
@@ -223,15 +231,17 @@ Iterator* Table::NewIterator(const ReadOptions& options) const {
       &Table::BlockReader, const_cast<Table*>(this), options);
 }
 
+// the internal get in table
 Status Table::InternalGet(const ReadOptions& options, const Slice& k,
                           void* arg,
                           void (*saver)(void*, const Slice&, const Slice&)) {
   Status s;
+  // find the index block first
   Iterator* iiter = rep_->index_block->NewIterator(rep_->options.comparator);
   iiter->Seek(k);
   if (iiter->Valid()) {
     Slice handle_value = iiter->value();
-    FilterBlockReader* filter = rep_->filter;
+    FilterBlockReader* filter = rep_->filter; // what's the meaning of filter
     BlockHandle handle;
     if (filter != NULL &&
         handle.DecodeFrom(&handle_value).ok() &&

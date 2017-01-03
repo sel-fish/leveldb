@@ -374,6 +374,8 @@ Status Version::Get(const ReadOptions& options,
           files = NULL;
           num_files = 0;
         } else {
+          // user_key may exist in this file... just may ..
+          // can't be sure, only choose one file per level if level > 0
           files = &tmp2;
           num_files = 1;
         }
@@ -396,6 +398,7 @@ Status Version::Get(const ReadOptions& options,
       saver.ucmp = ucmp;
       saver.user_key = user_key;
       saver.value = value;
+      // try to get key from each file
       s = vset_->table_cache_->Get(options, f->number, f->file_size,
                                    ikey, &saver, SaveValue);
       if (!s.ok()) {
