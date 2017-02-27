@@ -37,6 +37,11 @@ namespace leveldb {
 
 class Arena;
 
+// SkipList has a nested struct Node and a nested class Iterator
+// typename and class is the same.. whether is ok...
+// only two public methods: Insert / Contains
+// and member method Contains is never used ...
+// when there is need to get from skiplist, use SkipList::Iterator instead
 template<typename Key, class Comparator>
 class SkipList {
  private:
@@ -67,6 +72,7 @@ class SkipList {
 
     // Returns the key at the current position.
     // REQUIRES: Valid()
+    // there is no member function named 'value'
     const Key& key() const;
 
     // Advances to the next position.
@@ -99,6 +105,10 @@ class SkipList {
 
   // Immutable after construction
   Comparator const compare_;
+
+  // seems that a skiplist will use a lot of arenas ??
+  // seems just one arena_ object is enough...
+  // in skiplist, we just invoke Arena:AllocateAligned
   Arena* const arena_;    // Arena used for allocations of nodes
 
   Node* const head_;
@@ -107,6 +117,7 @@ class SkipList {
   // values are ok.
   port::AtomicPointer max_height_;   // Height of the entire list
 
+  // init as 1
   inline int GetMaxHeight() const {
     return static_cast<int>(
         reinterpret_cast<intptr_t>(max_height_.NoBarrier_Load()));
@@ -142,6 +153,9 @@ class SkipList {
   void operator=(const SkipList&);
 };
 
+// here Node is a nested struct
+// and the scope class is SkipList<Key,Comparator>
+// and the scope class is template class
 // Implementation details follow
 template<typename Key, class Comparator>
 struct SkipList<Key,Comparator>::Node {
@@ -176,14 +190,21 @@ struct SkipList<Key,Comparator>::Node {
 
  private:
   // Array of length equal to the node height.  next_[0] is lowest level link.
+  // AtomicPointer is used heavily in leveldb ?? not so heavily seems to me...
   port::AtomicPointer next_[1];
 };
 
+// why we need a typename here
 template<typename Key, class Comparator>
 typename SkipList<Key,Comparator>::Node*
 SkipList<Key,Comparator>::NewNode(const Key& key, int height) {
   char* mem = arena_->AllocateAligned(
       sizeof(Node) + sizeof(port::AtomicPointer) * (height - 1));
+  // new a object with existing storage, what's this syntax ...
+  // that is so called placement new operator
+  // http://en.cppreference.com/w/cpp/language/new
+  // when you maintain a mem pool yourself, you may found the need to do that
+  // and that's why we do it here in leveldb
   return new (mem) Node(key);
 }
 
@@ -244,6 +265,7 @@ int SkipList<Key,Comparator>::RandomHeight() {
   // Increase height with probability 1 in kBranching
   static const unsigned int kBranching = 4;
   int height = 1;
+  // can't understand this code...
   while (height < kMaxHeight && ((rnd_.Next() % kBranching) == 0)) {
     height++;
   }
@@ -262,6 +284,7 @@ template<typename Key, class Comparator>
 typename SkipList<Key,Comparator>::Node* SkipList<Key,Comparator>::FindGreaterOrEqual(const Key& key, Node** prev)
     const {
   Node* x = head_;
+  // always search from the highest level
   int level = GetMaxHeight() - 1;
   while (true) {
     Node* next = x->Next(level);
@@ -326,7 +349,9 @@ SkipList<Key,Comparator>::SkipList(Comparator cmp, Arena* arena)
     : compare_(cmp),
       arena_(arena),
       head_(NewNode(0 /* any key will do */, kMaxHeight)),
+      // init max height as 1
       max_height_(reinterpret_cast<void*>(1)),
+      // what is rnd_ ...
       rnd_(0xdeadbeef) {
   for (int i = 0; i < kMaxHeight; i++) {
     head_->SetNext(i, NULL);
@@ -338,11 +363,13 @@ void SkipList<Key,Comparator>::Insert(const Key& key) {
   // TODO(opt): We can use a barrier-free variant of FindGreaterOrEqual()
   // here since Insert() is externally synchronized.
   Node* prev[kMaxHeight];
+  // search the key and store the prev pointer of each level....
   Node* x = FindGreaterOrEqual(key, prev);
 
   // Our data structure does not allow duplicate insertion
   assert(x == NULL || !Equal(key, x->key));
 
+  // generate a random height for new node
   int height = RandomHeight();
   if (height > GetMaxHeight()) {
     for (int i = GetMaxHeight(); i < height; i++) {

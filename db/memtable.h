@@ -76,6 +76,7 @@ class MemTable {
   KeyComparator comparator_;
   int refs_;
   Arena arena_;
+  // skiplist
   Table table_;
 
   // No copying allowed

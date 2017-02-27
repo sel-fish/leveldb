@@ -7,6 +7,7 @@
 
 namespace leveldb {
 
+// the size of block
 static const int kBlockSize = 4096;
 
 Arena::Arena() : memory_usage_(0) {
@@ -38,6 +39,7 @@ char* Arena::AllocateFallback(size_t bytes) {
   return result;
 }
 
+// AllocateAligned is public member, same as Allocate
 char* Arena::AllocateAligned(size_t bytes) {
   const int align = (sizeof(void*) > 8) ? sizeof(void*) : 8;
   assert((align & (align-1)) == 0);   // Pointer size should be a power of 2

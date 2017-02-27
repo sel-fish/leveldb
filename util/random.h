@@ -12,6 +12,7 @@ namespace leveldb {
 // A very simple random number generator.  Not especially good at
 // generating truly random bits, but good enough for our needs in this
 // package.
+// why use self define Random class instead of std::default_random_engine ...
 class Random {
  private:
   uint32_t seed_;

@@ -5,6 +5,7 @@
 #include "db/db_impl.h"
 
 #include <algorithm>
+#include <iostream>
 #include <set>
 #include <string>
 #include <stdint.h>
@@ -1368,6 +1369,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       log_ = new log::Writer(lfile);
       imm_ = mem_;
       has_imm_.Release_Store(imm_);
+      // that where we create new MemTable
       mem_ = new MemTable(internal_comparator_);
       mem_->Ref();
       force = false;   // Do not force another compaction if have room
@@ -1488,8 +1490,14 @@ DB::~DB() { }
 
 Status DB::Open(const Options& options, const std::string& dbname,
                 DB** dbptr) {
+  std::cout << "open db" << dbname << std::endl;
   *dbptr = NULL;
 
+  // internal_comparator_ is inited in options constructor ..
+  // which is internal_comparator_(raw_options.comparator)
+  // type: const InternalKeyComparator internal_comparator_;
+  // in options, comparator(BytewiseComparator())
+  // definition is const Comparator* comparator;
   DBImpl* impl = new DBImpl(options, dbname);
   impl->mutex_.Lock();
   VersionEdit edit;
@@ -1507,6 +1515,7 @@ Status DB::Open(const Options& options, const std::string& dbname,
       impl->logfile_ = lfile;
       impl->logfile_number_ = new_log_number;
       impl->log_ = new log::Writer(lfile);
+      // creat new MemTable
       impl->mem_ = new MemTable(impl->internal_comparator_);
       impl->mem_->Ref();
     }

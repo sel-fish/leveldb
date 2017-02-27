@@ -13,6 +13,7 @@
 
 namespace leveldb {
 
+// how many Arenas will a skiplist use
 class Arena {
  public:
   Arena();
@@ -35,13 +36,19 @@ class Arena {
   char* AllocateNewBlock(size_t block_bytes);
 
   // Allocation state
+  // representing current alloction status
   char* alloc_ptr_;
   size_t alloc_bytes_remaining_;
 
+  // arena contains blocks_, each item in vetor blocks_
+  // represent a block , the size of the block depends
+  // either kBlockSize or a size bigger than kBlockSize / 4
+  // kBlockSize is 4K by default
   // Array of new[] allocated memory blocks
   std::vector<char*> blocks_;
 
   // Total memory usage of the arena.
+  // what's the implement of AtomicPointer ...
   port::AtomicPointer memory_usage_;
 
   // No copying allowed
@@ -49,10 +56,13 @@ class Arena {
   void operator=(const Arena&);
 };
 
+// inline method defines in header file...
 inline char* Arena::Allocate(size_t bytes) {
   // The semantics of what to return are a bit messy if we allow
   // 0-byte allocations, so we disallow them here (we don't need
   // them for our internal use).
+
+  // when will we need 0-byte allocations ...
   assert(bytes > 0);
   if (bytes <= alloc_bytes_remaining_) {
     char* result = alloc_ptr_;
